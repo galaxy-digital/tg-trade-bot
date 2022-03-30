@@ -12,3 +12,4 @@ certs
 npm-debug.log*
 package-lock.json
 response.json
+yarn.lock
