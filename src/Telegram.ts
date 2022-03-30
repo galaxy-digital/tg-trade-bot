@@ -2,10 +2,16 @@ require("dotenv").config()
 import * as express from 'express'
 import * as fs from 'fs'
 import { setlog } from './helper'
-import { Config, Users } from './Model';
+import { Config, getOrCreateUser, Users } from './Model'
 const router = express.Router()
 
 const now = () => Math.round(new Date().getTime()/1000)
+
+
+
+export const initTelegram = async () => {
+
+}
 
 export const replyMessage = (uid:number|null, replyToken:string, message:string) => {
 	
@@ -16,24 +22,30 @@ export const pushMessage = (chatId:string, text:string) => {
 }
 
 export const replyImage = async (replyToken:string, uri:string) => {
-	
+	/* 
+	https://api.telegram.org/bot1183414296:AAH6UESAFVW81Bto07BZtFfSAZQcLRnF3tA/setWebhook
+	{
+		"url": "https://bac27031.ngrok.io/telegram/7zhTchRHHrHHgTxmQMx5tFpuREpVGJ4q"
+	}
+	Content-Type : application/json 
+	*/
 }
 
-export const initApp = async () => {
+router.post("/add/webhook", (req:express.Request, res:express.Response)=>{
 
-}
+})
 
-const hook = (req:express.Request, res:express.Response)=>{
+router.post("/webhook", (req:express.Request, res:express.Response)=>{
 	fs.appendFileSync(__dirname + '/../response.json', JSON.stringify(req.body, null, '\t') + '\r\n\r\n')
-	/* if (req.body.events && req.body.events.length!==0) {
+	/* 
+	if (req.body.events && req.body.events.length!==0) {
 		const event = req.body.events[0]
 		const { message, source } = event
 		handleWebHook(event, source, message)
-	} */
-	res.status(200).send('');
-}
-
-router.post("/webhook", hook);
+	} 
+	*/
+	res.status(200).send('')
+})
 
 const handleWebHook = async ():Promise<boolean> => {
 	try {
@@ -56,7 +68,7 @@ const handleWebHook = async ():Promise<boolean> => {
 		console.log(error)
 	}
 	return false
-};
+}
 
 const parseAdminCommand = async (groupId:string, replyToken:string, cmd:string, param:string):Promise<boolean> => {
 	try {
@@ -117,52 +129,5 @@ const parseCommand = async (groupId:string, userId:string, replyToken:string, cm
 	return false
 }
 
-const getConfig = async (key:string):Promise<string> => {
-	const row = await Config.findOne({ key })
-	if (row) return row.value
-	return ''
-}
-
-const setConfig = async (key:string, value:string) => {
-	await Config.updateOne({ key }, { $set:{ key, value } }, { upsert:true })
-}
-
-const getOrCreateUser = async (userId:string) => {
-	let row = await Users.findOne({userId})
-	if (row===null) {
-		/* let id = 1001
-		const rows = await Users.aggregate([{$group: {_id: null, max: { $max : "$id" }}}]).toArray();
-		if (rows.length>0) id = rows[0].max + 1
-		let displayName = ''
-		try {
-			const profile = await client.getProfile(userId)
-			displayName = profile.displayName
-			console.log('profile', profile)
-		} catch (error) {
-			console.log(error)
-		}
-		const user = {
-			id,
-			userId,
-			displayName,
-			balance: 		0,
-			updated: 		0,
-			created: 		now()
-		} as SchemaUsers
-		names[id] = displayName
-		await Users.insertOne(user)
-		return user */
-	}
-	return row
-}
-
-const updateUser = async (userId:string|number, params:Partial<SchemaUsers>) => {
-	if (typeof userId==="string") {
-		await Users.updateOne({ userId }, {$set:params})
-	} else {
-		await Users.updateOne({ id:userId }, {$set:params})
-	}
-	return true
-}
 
 export default router

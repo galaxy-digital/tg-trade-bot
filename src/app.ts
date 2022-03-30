@@ -7,7 +7,7 @@ import * as express from 'express';
 import * as cors from 'cors'
 
 
-import Api, {initApp} from './api'
+import Api, {initTelegram} from './Telegram'
 import {setlog} from './helper';
 import Model from './Model'
 
@@ -22,7 +22,7 @@ Date.now = () => Math.round((new Date().getTime()) / 1000);
 
 Model.connect().then(async ()=>{
 	try {
-		await initApp();
+		await initTelegram();
 		const app = express()
 		const server = http.createServer(app)
 		let httpsServer = null as any;
@@ -48,13 +48,15 @@ Model.connect().then(async ()=>{
 		}))
 		
 		
-		app.use(Api);
+		app.use(express.urlencoded()) // {limit: '200mb'}
+		app.use(express.json())
+
 		app.get('/', (req,res) => {
-			res.send(`this is Labi's website`)
+			res.send(`this is hua's website`)
 		})
-		app.use(express.urlencoded({limit: '200mb'}))
-		app.use(express.json({limit: '200mb'}))
-		app.use(express.static(__dirname + '/../images'))
+
+		app.use('/api/telegram', Api);
+		/* app.use(express.static(__dirname + '/../images')) */
 		app.get('*', (req,res) => {
 			res.status(404).send('')
 		})
