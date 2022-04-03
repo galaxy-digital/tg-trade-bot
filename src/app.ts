@@ -8,6 +8,7 @@ import * as cors from 'cors'
 
 
 import Api, {initTelegram} from './Telegram'
+import Crawling from './Crawling'
 import {setlog} from './helper';
 import Model from './Model'
 
@@ -55,6 +56,7 @@ Model.connect().then(async ()=>{
 			res.send(`this is hua's website`)
 		})
 
+		app.use('/api/crawling', Crawling);
 		app.use('/api/telegram', Api);
 		/* app.use(express.static(__dirname + '/../images')) */
 		app.get('*', (req,res) => {

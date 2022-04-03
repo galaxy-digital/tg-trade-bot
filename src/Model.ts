@@ -1,12 +1,18 @@
 require('dotenv').config()
-import { MongoClient } from 'mongodb';
+import { GridFSBucket, MongoClient } from 'mongodb';
+import { Readable } from 'stream';
 import { setlog } from './helper';
 const dbname = process.env.DB_NAME || 'dice'
 const client = new MongoClient('mongodb://localhost:27017');
 const db = client.db(dbname);
 
-export const Config = 	db.collection<SchemaConfig>('config');
-export const Users = 	db.collection<SchemaUsers>('users');
+export const Config = 		db.collection<SchemaConfig>('config');
+export const Users = 		db.collection<SchemaUsers>('users');
+export const Posts = 		db.collection<SchemaPosts>('posts');
+export const bucketUploads =new GridFSBucket(db, { bucketName: 'uploads' });
+const uploadFiles = 		db.collection<SchemaFile>('uploads.files')
+
+/* export const CrawlClasses = db.collection<SchemaCrawlClasses>('crawl_classes'); */
 
 const connect = async () => {
 	try {
@@ -15,22 +21,55 @@ const connect = async () => {
 		Config.createIndex( {key: 1}, { unique: true })
 		Users.createIndex( {userId: 1}, { unique: true })
 		Users.createIndex( {id: 1}, { unique: true })
+		Posts.createIndex( {id: 1}, { unique: true })
 
 	} catch (error) {
 		console.error('Connection to MongoDB failed', error)
 		process.exit()
 	}
 }
+export const addFile = async (name:string, id:number, buffer:Buffer):Promise<boolean> => {
+	return new Promise(resolve=>{
+		const readable = new Readable()
+		const uploadStream = bucketUploads.openUploadStream(name, {
+			chunkSizeBytes: buffer.length,
+			metadata: { id }
+		})
+		readable._read = () => {} // _read is required but you can noop it
+		readable.push(buffer)
+		readable.push(null)
+		readable.pipe(uploadStream)
+		uploadStream.on('finish', ()=>resolve(true))
+		uploadStream.on('error', (error)=>{
+			console.log(error)
+			resolve(false)
+		})
+	})
+}
 
+export const queryFiles = async (id:number):Promise<Array<UploadFileType>> => {
+	const rows = await uploadFiles.find({"metadata.id":String(id)}).toArray()
+	const result = [] as UploadFileType[]
+	for (let i of rows) {
+		result.push({
+			id:		i._id.toHexString(),
+			name:	i.filename,
+			size:	i.length
+		})
+	}
+	return result
+}
 
-export const getConfig = async (key:string):Promise<string> => {
+export type KeyType = 'CRAWL_LAST'
+
+export const getConfig = async (key:KeyType):Promise<string> => {
 	const row = await Config.findOne({ key })
 	if (row) return row.value
 	return ''
 }
 
-export const setConfig = async (key:string, value:string) => {
-	await Config.updateOne({ key }, { $set:{ key, value } }, { upsert:true })
+export const setConfig = async (key:KeyType, value:string|number) => {
+	await Config.updateOne({ key }, { $set:{ key, value:String(value) } }, { upsert:true })
 }
 
 export const getOrCreateUser = async (userId:string) => {

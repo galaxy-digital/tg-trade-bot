@@ -3,16 +3,7 @@ declare interface SchemaConfig {
 	value: 			string
 }
 
-declare interface SchemaUsers {
-	id: 			number
-	userName: 		string
-	displayName: 	string
-	balance:		number
-	updated:		number
-	created:		number
-}
-
-declare interface SchemaPosts {
+/* declare interface SchemaCrawlClasses {
 	id: 			number
 	uid: 			number
 	title: 			string
@@ -22,13 +13,43 @@ declare interface SchemaPosts {
 	sales:			number
 	updated:		number
 	created:		number
-}
+} */
 
 declare interface SchemaUsers {
 	id: 			number
-	userId: 		string
+	username: 		string
 	displayName: 	string
 	balance:		number
 	updated:		number
 	created:		number
+}
+
+declare interface SchemaPosts {
+	id: 			number
+	pid: 			number
+	uid: 			number
+	username: 		string
+	title: 			string
+	contents: 		string
+	result: 		string
+	price:			number
+	sales:			number
+	status:			number
+	updated:		number
+	created:		number
+}
+
+declare interface SchemaFile {
+	length: 			number
+	chunkSize: 			number
+	uploadDate: 		string
+	filename: 			string
+	metadata: 			{
+		id: 			string
+	}
+}
+declare interface  UploadFileType {
+	id:				string
+	name:			string
+	size:			number
 }

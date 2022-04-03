@@ -6,6 +6,7 @@ dist
 files
 images
 # misc
+tmp
 .env
 .env.*
 certs
