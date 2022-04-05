@@ -14,9 +14,12 @@ const router = express.Router()
 const now = () => Math.round(new Date().getTime()/1000)
 
 const apiUrl = isDev ? 'https://api.telegram.org' : 'https://api.telegram.org'
+const botAdmin = process.env.BOT_ADMIN || ''
 const botKey = (isDev ? process.env.DEV_BOT_KEY : process.env.BOT_KEY) || ''
 const botName = (isDev ? process.env.DEV_BOT_NAME : process.env.BOT_NAME) || ''
 
+const PREFIX_POST = "ff"
+const PREFIX_ORDER = "fe"
 
 router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 	try {
@@ -24,12 +27,18 @@ router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 		const response = await axios.post(`${apiUrl}/bot${botKey}/setWebhook`, { url: url + "/api/telegram/webhook" })
 		res.json(response.data)
 	} catch (error) {
+		setlog("bot-set-webhook", error)
 		res.json(error)
 	}
 })
 
 router.post("/webhook", (req:express.Request, res:express.Response)=>{
-	parseMessage(req.body)
+	try {
+		fs.appendFileSync(__dirname + '/../response.json', JSON.stringify(req.body, null, '\t'))
+		parseMessage(req.body)
+	} catch (error) {
+		setlog("bot-webhook", error)
+	}
 	res.status(200).send('')
 })
 
@@ -46,7 +55,7 @@ const replyBot = async (api:string, json:any) => {
 		}
 		return true
 	} catch (error) {
-		console.error(error)
+		setlog("bot-replyBot", error)
 	}
 	return false
 }
@@ -74,44 +83,112 @@ const api = {
 	send: (json:any) => replyBot('sendMessage',json),
 	edit: (json:any) => replyBot('editMessageText',json),
 	forward: (json:any) => replyBot('forwardMessage',json),
-	answer: (callback_query_id:number, text:string) => replyBot('answerCallbackQuery',{callback_query_id,text,show_alert:true}),
+	answer: (callback_query_id:number, text:string) => replyBot('answerCallbackQuery', { callback_query_id, text, show_alert:true }),
 }
 
 const parseMessage = async (body:any):Promise<boolean> => {
 	try {
 		if (body.message!==undefined)  {
-			const { message_id, from, chat, date, forward_from, left_chat_member, text } = body.message
+			const { message_id, from, chat, forward_from, text } = body.message
 			const valid = text!==undefined && forward_from===undefined
 			if (valid) {
-				await findPosts(text, chat.id, message_id, 0, 0)
+				if (from.is_bot) return false
+				if (chat.type==='private') {
+					if (text.indexOf('/start')===0) {
+						const param = text.slice(7)
+						if (param.slice(0,2)===PREFIX_POST) {
+							const token = param.slice(2)
+							await showPost(token, chat.id, message_id)
+						} else if (param.slice(0,2)===PREFIX_ORDER) {
+							const token = param.slice(2)
+							await showOrder(token, chat.id, message_id)
+						} else {
+							const username = from.username || ''
+							const fullname = from.first_name + (from.last_name!==undefined ? ' ' + from.last_name : '')
+							const user = await getUser(from.id, username, fullname)
+							await showProfile(user, chat.id, message_id)
+						}
+						return true
+					}
+				}
+				await findPosts(text, from.id, chat.id, message_id, 0, 0)
 			}
+			await api.remove({chat_id:chat.id, message_id})
 		} else if (body.channel_post!==undefined)  {
 
 		} else if (body.my_chat_member!==undefined)  {
 
 		} else if (body.callback_query!==undefined)  {
-
+			const { id, data, from, message } = body.callback_query
+			const { message_id, chat } = message
+			const matches = data.match(/([a-z1-9]+)\((.*)\)/)
+			if (matches &&matches.length===3) {
+				const fn = matches[1]
+				const args = matches[2]
+				
+				if (fn==='find') {
+					const x = args.split(',')
+					const fromId = Number(x[0])
+					if (from.id===fromId) {
+						await findPosts(x[1], fromId, chat.id, message_id, Number(x[2]), Number(x[3]))
+					} else {
+						api.answer(id, '不能操作别人的搜索结果');
+					}
+				}
+			}
 		}
 		return true
 	} catch (error) {
-		setlog("parseCommand", error)
+		setlog("bot-parseCommand", error)
 		/* await replyMessage(null, replyToken, ERROR_UNKNOWN_ERROR) */
 	}
 	return false
 }
 
-const findPosts = async (query:string, chat_id:number, message_id:number, page?:number, count?:number)=>{
+
+
+const getUser = async (id:number, username:string, fullname:string):Promise<SchemaUsers> => {
+	const user = await Users.findOne({ id })
+	if (user===null) {
+		const $set = {
+			id, 
+			username,
+			fullname,
+			balance: 0,
+			updated:now(),
+			created:now()
+		} as SchemaUsers
+		await Users.updateOne( { id }, { $set }, { upsert:true } )
+		return $set
+	}
+	await Users.updateOne( { id }, { $set:{
+		id, 
+		username,
+		fullname,
+		updated:now()
+	} } )
+	return user
+}
+
+const findPosts = async (query:string, from_id:number, chat_id:number, message_id:number, page?:number, count?:number)=>{
 	try {
+		query = query.replace(/[\s&\/\\#,+()$~%.'":*?<>{}]/g,'');
 		const keywords = [ query ] //await jieba.cut(query)
 		const where = { $or:[] } as any
 		if (keywords.length) {
 			for (let i of keywords) {
-				where.$or.push({ title: {$regexp: new RegExp(i)} })
+				where.$or.push({ title: {$regex: new RegExp(i)} })
 			}
 		}
 		if (where.$or.length>5) where.$or = where.$or.slice(0,5)
-		
-		if ( count===0 ) count = Number(await Posts.count(where))
+		// const where = { title: { $regex: query, $options: 'i' } }
+		let isUpdate = false
+		if ( count===0 ) {
+			const res = await Posts.count(where)
+			count = Number(res)
+		} else {
+			isUpdate = true
+		}
 		const limit = 20
 		let total = 0
 		if (count) {
@@ -120,40 +197,48 @@ const findPosts = async (query:string, chat_id:number, message_id:number, page?:
 			if ( page < 0 ) page = 0
 			const rows = await Posts.find(where).sort({ created:-1 }).skip(page * limit).limit(limit).toArray()
 
-			const lists = [] as string[]
+			const lists = [ `关键词 <b>[${query}]</b>搜索结果 ${count}中 ${page + 1} / ${total}页` ] as string[]
 			const cmds = [] as Array<{ text:string, url?:string, callback_data?:string }>
 			for(let i of rows) {
-				lists.push(`<a href="https://t.me/${ botName }?start=${ i._id }">🎁${ i.title }</a>`)
+				lists.push(`<a href="https://t.me/${ botName }?start=${ PREFIX_POST + i._id }">🎁${ i.title }</a>`)
 			}
 			let json = { chat_id, text:lists.join('\r\n'), parse_mode:'html', disable_web_page_preview:true } as any
 			if( total==1 ) {
 				json.reply_to_message_id = message_id;
 			} else {
 				json.message_id = message_id;
-				if ( page > 0 ) 	cmds.push({ text: "⬅️上翻", callback_data: [ 'find', query, count, page ].join('-') });
-				if ( page < total ) cmds.push({ text: "下翻➡",  callback_data: [ 'find', query, count, page + 2 ].join('-') });
+				if ( page > 0 ) 	cmds.push({ text: "⬅️上翻", callback_data: `find(${from_id},${query},${page - 1},${count})` });
+				if ( page < total ) cmds.push({ text: "下翻➡",  callback_data: `find(${from_id},${query},${page + 1},${count})` });
 			}
-			json.reply_markup={
+			json.reply_markup = {
 				resize_keyboard: true,
 				one_time_keyboard: false,
 				force_reply: true,
 				inline_keyboard:[
 					cmds,
-					[{ text: "查看电报账户", url: `https://t.me/${ botName }?start=profile` }]
+					// [{ text: "查看电报账户", url: `https://t.me/${ botName }?start=profile` }]
 				]
 			}
-			if (page===0) {
+			if (!isUpdate) {
 				api.send(json)
 			} else {
 				api.edit(json)
 			}
+
+		} else {
+			api.send({
+				chat_id, 
+				text: `关键词 <b>[${query}]</b>\r\n没有结果`, 
+				parse_mode:'html', 
+				disable_web_page_preview:true
+			})
 		}
 	} catch (error) {
-		setlog('find', error);
+		setlog('bot-findPosts', error);
 	}
 }
 
-const showPost = async (chat_id:number, message_id:number, callback_query_id:number, token:string)=>{
+const showPost = async (token:string, chat_id:number, message_id:number)=>{
 	try {
 		let row = await Posts.findOne({ _id: new ObjectId(token), status:100 });
 		if ( row!==null ) {
@@ -189,7 +274,101 @@ const showPost = async (chat_id:number, message_id:number, callback_query_id:num
 			api.send(json)
 		}
 	} catch (error) {
-		setlog('telegram-view', error);
+		setlog('bot-showPost', error);
+	}
+}
+
+const showOrder = async (token:string, chat_id:number, message_id:number)=>{
+	try {
+		/* let row = await Posts.findOne({ _id: new ObjectId(token), status:100 });
+		if ( row!==null ) {
+			let lists = [] as string[]
+			let re = /(<([^>]+)>)/ig
+			lists.push( '🎁' + row.title.replace(re, '') )
+			lists.push( row.contents.replace(re, '').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n') )
+			lists.push(`价格: US$ ${row.price}`)
+			
+			let inline_keyboard=[];
+			inline_keyboard.push([{ text: "购买", callback_data: ['buy', token].join('-')}])
+			inline_keyboard.push([{ text: "↩️ 返回个人中心", callback_data: "profile" }])
+			let json = {
+				chat_id,
+				text: lists.join('\r\n'),
+				parse_mode:'html',
+				disable_web_page_preview:true,
+				reply_markup:{
+					resize_keyboard: true,
+					one_time_keyboard: false,
+					force_reply: true,
+					inline_keyboard
+				}
+			}
+			api.send(json)
+		}else{
+			let json={
+				chat_id,
+				text:'💡 对不起，没找到发布详情，已下架❌',
+				parse_mode:'html',
+				disable_web_page_preview:true
+			};
+			api.send(json)
+		} */
+	} catch (error) {
+		setlog('bot-showOrder', error);
+	}
+}
+
+
+
+const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=>{
+	try {
+		let lists = [] as string[]
+		lists.push( `您好 <b>${ user.fullname || user.username }</b>` )
+		lists.push( `您的账户ID是: ${user.balance}₿` )
+		lists.push( `💰余额: ${user.balance}₿` )
+		
+		let inline_keyboard = [
+			/* [
+				{"text": "🎁我的商店","callback_data": 'posts'},
+				{"text": "✏️发布","callback_data": 'new'},
+			], */
+			/* [
+				{"text": "🛍查看订单","callback_data": 'orders'}
+			], */
+			[
+				// { "text": "📥充值","callback_data": "deposit()" },
+				// {"text": "📤提现","callback_data": "withdraw"}
+				{"text": "📥充值","url": `https://t.me/${botAdmin}`},
+				{"text": "📤提现","url": `https://t.me/${botAdmin}`}
+			],
+			[
+				{"text": "👩🏻‍🦰联系管理","url": 'https://t.me/'+process.env.TELEGRAMADMIN}
+			]
+		]
+		
+		/* inline_keyboard.push([
+			{"text": "暗网自由城平台开户","callback_data": 'password'},
+		]) */
+		
+		let json={
+			chat_id,
+			text: lists.join('\r\n'),
+			parse_mode: 'html',
+			disable_web_page_preview: true,
+			reply_markup: {
+				resize_keyboard: 	true,
+				one_time_keyboard: 	false,
+				force_reply: 	true,
+				inline_keyboard
+			}
+		};
+		// if(callback_query_id) json.message_id=message_id;
+		// TelegramApi[callback_query_id?'edit':'send'](json);
+		// setTg({id:vtg.uid,username:vtg.tgname || vtg.tgid},'显示我的');
+		// TelegramApi.channel('个人中心 (会员 ['+vtg.tgname+'])');
+		api.send(json)
+	} catch (error) {
+		setlog('bot-showProfile', error);
 	}
 }
 
