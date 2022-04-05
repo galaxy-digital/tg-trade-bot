@@ -324,7 +324,7 @@ const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=
 	try {
 		let lists = [] as string[]
 		lists.push( `您好 <b>${ user.fullname || user.username }</b>` )
-		lists.push( `您的账户ID是: ${user.balance}₿` )
+		lists.push( `您的账户ID是: <b>#${user.id}</b>` )
 		lists.push( `💰余额: ${user.balance}₿` )
 		
 		let inline_keyboard = [
