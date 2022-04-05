@@ -39,6 +39,7 @@ declare interface SchemaPosts {
 	created:		number
 }
 
+
 declare interface SchemaFile {
 	length: 			number
 	chunkSize: 			number
@@ -52,4 +53,9 @@ declare interface  UploadFileType {
 	id:				string
 	name:			string
 	size:			number
+}
+
+declare interface FindPostType {
+	id: 			number
+	title: 			string
 }

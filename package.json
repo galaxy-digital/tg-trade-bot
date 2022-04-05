@@ -13,6 +13,7 @@
     "express": "^4.17.1",
     "express-session": "^1.17.1",
     "image-size": "^1.0.1",
+    "jieba-js": "^1.0.2",
     "mongodb": "^4.3.0",
     "rimraf": "^3.0.2",
     "sharp": "^0.30.3",
