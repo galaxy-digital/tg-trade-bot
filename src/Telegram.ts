@@ -249,8 +249,12 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 			lists.push(`价格: US$ ${row.price}`)
 			
 			let inline_keyboard=[];
-			inline_keyboard.push([{ text: "购买", callback_data: ['buy', token].join('-')}])
-			inline_keyboard.push([{ text: "↩️ 返回个人中心", callback_data: "profile" }])
+			
+			inline_keyboard.push([ 
+				{ text: "购买", url: `https://t.me/${botAdmin}`} 
+			])
+			// inline_keyboard.push([{ text: "购买", callback_data: ['buy', token].join('-')}])
+			/* inline_keyboard.push([{ text: "↩️ 返回个人中心", callback_data: "profile" }]) */
 			let json = {
 				chat_id,
 				text: lists.join('\r\n'),
@@ -338,11 +342,11 @@ const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=
 			[
 				// { "text": "📥充值","callback_data": "deposit()" },
 				// {"text": "📤提现","callback_data": "withdraw"}
-				{"text": "📥充值","url": `https://t.me/${botAdmin}`},
-				{"text": "📤提现","url": `https://t.me/${botAdmin}`}
+				{ text: "📥充值", url: `https://t.me/${botAdmin}` },
+				{ text: "📤提现", url: `https://t.me/${botAdmin}` }
 			],
 			[
-				{"text": "👩🏻‍🦰联系管理","url": 'https://t.me/'+process.env.TELEGRAMADMIN}
+				{ text: "👩🏻‍🦰联系管理", url: `https://t.me/${botAdmin}` }
 			]
 		]
 		
