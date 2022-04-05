@@ -41,8 +41,8 @@ Model.connect().then(async ()=>{
 		} else {
 			console.log("Do not find ssl files, disabled ssl features.")
 		} */
-		const file_key = __dirname+'/../certs/cert.key';
-		const file_crt = __dirname+'/../certs/cert.crt';
+		const file_key = __dirname+'/../certs/ca.key';
+		const file_crt = __dirname+'/../certs/ca.crt';
 		if (fs.existsSync(file_key) && fs.existsSync(file_crt)) {
 			const key = fs.readFileSync(file_key, 'utf8')
 			const cert = fs.readFileSync(file_crt, 'utf8')
