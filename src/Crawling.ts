@@ -1,7 +1,7 @@
 require("dotenv").config()
 const isDev = process.env.NODE_ENV==="development"
 import * as express from 'express'
-import axios from 'axios'
+// import axios from 'axios'
 import * as fs from 'fs'
 import * as path from 'path'
 import { setlog } from './helper'
@@ -10,13 +10,16 @@ const tor = require('tor-request');
 const cheerio = require('cheerio');
 const sizeOf = require('image-size');
 const sharp = require('sharp');
-const crypto = require('crypto');
+// const crypto = require('crypto');
 
 const router = express.Router()
 const now = () => Math.round((new Date().getTime()) / 1000)
 
 router.post("/start", async (req:express.Request, res:express.Response)=>{
-	const { pid, count } = req.body
+	// const { pid, count } = req.body
+	// pid : 10001 /// data 
+	const pid = 10001
+	const count = 342
 	crawlIndex(pid, count).then(status=>{
 		status && crawlPosts()
 	})
@@ -25,8 +28,8 @@ router.post("/start", async (req:express.Request, res:express.Response)=>{
 
 const host = 'xxxxxxxxxs6qbnahsbvxbghsnqh4rj6whbyblqtnmetf7vell2fmxmad.onion';
 const headers = {
-	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:78.0) Gecko/20100101 Firefox/78.0',
-	'Cookie': 'random=1064; PHPSESSID=ais74mjppbdcatraqn5ti1nqb9; userid=609234'
+	'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0',
+	'Cookie': 'random=1064; PHPSESSID=068sm9vfgtijtsqn7nagl256ol; userid=727415'
 };
 
 const fetchPost = (url:string) => {
@@ -43,8 +46,8 @@ const fetchPost = (url:string) => {
 
 const crawlIndex = async (pid:number, count:number):Promise<boolean>=>{
 	try {
-		const lastIndex = Number(await getConfig("CRAWL_LAST") || 0)
-		let start = lastIndex + 1;
+		// const lastIndex = Number(await getConfig("CRAWL_LAST") || 0)
+		let start = 1;
 		for (let i = start; i <= count; i++) {
 			//ea.php?ea=10009&pagea=45#pagea
 			let url = `http://${host}/ea.php?ea=${pid}${i==1 ? '' : '&pagea=' + i + '#pagea'}`
@@ -83,7 +86,12 @@ const crawlIndex = async (pid:number, count:number):Promise<boolean>=>{
 							}
 						}
 					});
-					await Posts.insertMany(inserts)
+					try {
+						await Posts.insertMany(inserts)	
+					} catch (error) {
+						console.log("#" + i, error)
+					}
+					
 					await setConfig("CRAWL_LAST", lastId)
 					console.log(`#${i} success ${+new Date() - time}ms`);
 					break;
