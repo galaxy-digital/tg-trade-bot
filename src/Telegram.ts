@@ -5,7 +5,7 @@ import { Filter, ObjectId } from 'mongodb'
 import * as fs from 'fs'
 import axios from 'axios'
 import { setlog } from './helper'
-import { Config, getOrCreateUser, Posts, Users } from './Model'
+import { bucketUploads, Config, getOrCreateUser, Posts, queryFiles, Users } from './Model'
 /* import jieba, { cut } from 'jieba-js'; */
 // const cut = require("jieba-js").cut
 // const jieba = require("jieba-js");
@@ -14,6 +14,7 @@ const router = express.Router()
 const now = () => Math.round(new Date().getTime()/1000)
 
 const apiUrl = isDev ? 'https://api.telegram.org' : 'https://api.telegram.org'
+const serverUrl = process.env.SERVERURL || ''
 const botAdmin = process.env.BOT_ADMIN || ''
 const botKey = (isDev ? process.env.DEV_BOT_KEY : process.env.BOT_KEY) || ''
 const botName = (isDev ? process.env.DEV_BOT_NAME : process.env.BOT_NAME) || ''
@@ -40,6 +41,16 @@ router.post("/webhook", (req:express.Request, res:express.Response)=>{
 		setlog("bot-webhook", error)
 	}
 	res.status(200).send('')
+})
+
+router.get("/assets/:id",async (req:express.Request, res:express.Response)=>{
+	try {
+		const { id } = req.params
+		const downStream = bucketUploads.openDownloadStream(new ObjectId(id))
+		downStream.pipe(res);
+	} catch (error) {
+		res.status(404).send('not found resource')
+	}
 })
 
 export const initTelegram = async () => {
@@ -81,6 +92,7 @@ const api = {
 	},
 	remove: (json:any) => replyBot('deleteMessage',json),
 	send: (json:any) => replyBot('sendMessage',json),
+	sendPhoto: (json:any) => replyBot('sendMessage',json),
 	edit: (json:any) => replyBot('editMessageText',json),
 	forward: (json:any) => replyBot('forwardMessage',json),
 	answer: (callback_query_id:number, text:string) => replyBot('answerCallbackQuery', { callback_query_id, text, show_alert:true }),
@@ -125,7 +137,6 @@ const parseMessage = async (body:any):Promise<boolean> => {
 			if (matches &&matches.length===3) {
 				const fn = matches[1]
 				const args = matches[2]
-				
 				if (fn==='find') {
 					const x = args.split(',')
 					const fromId = Number(x[0])
@@ -134,6 +145,8 @@ const parseMessage = async (body:any):Promise<boolean> => {
 					} else {
 						api.answer(id, '不能操作别人的搜索结果');
 					}
+				} else if (fn==='image') {
+					await showImage(chat.id, args)
 				}
 			}
 		}
@@ -242,19 +255,19 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 	try {
 		let row = await Posts.findOne({ _id: new ObjectId(token), status:100 });
 		if ( row!==null ) {
+			const files = await queryFiles(row.id)
 			let lists = [] as string[]
 			let re = /(<([^>]+)>)/ig
 			lists.push( '🎁' + row.title.replace(re, '') )
 			lists.push( row.contents.replace(re, '').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n') )
 			lists.push(`价格: US$ ${row.price}`)
 			
-			let inline_keyboard=[];
-			
-			inline_keyboard.push([ 
-				{ text: "购买", url: `https://t.me/${botAdmin}`} 
-			])
-			// inline_keyboard.push([{ text: "购买", callback_data: ['buy', token].join('-')}])
-			/* inline_keyboard.push([{ text: "↩️ 返回个人中心", callback_data: "profile" }]) */
+			const cmds = [ { text: "购买", url: `https://t.me/${botAdmin}`} ] as Array<{ text:string, url?:string, callback_data?:string }>
+			if (files.length!==0) {
+				const i = files[0]
+				cmds.push({ text: "查看图片", callback_data: `image(${ i.id })` })
+			}
+
 			let json = {
 				chat_id,
 				text: lists.join('\r\n'),
@@ -264,7 +277,9 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 					resize_keyboard: true,
 					one_time_keyboard: false,
 					force_reply: true,
-					inline_keyboard
+					inline_keyboard: [
+						cmds, 
+					]
 				}
 			}
 			api.send(json)
@@ -279,6 +294,18 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 		}
 	} catch (error) {
 		setlog('bot-showPost', error);
+	}
+}
+
+const showImage = async (chat_id:number, imageId:string)=>{
+	try {
+		let json={
+			chat_id,
+			photo: `${serverUrl}/api/telegram/image/${imageId}`
+		};
+		api.sendPhoto(json)
+	} catch (error) {
+		setlog('bot-showImage', error);
 	}
 }
 
@@ -375,5 +402,6 @@ const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=
 		setlog('bot-showProfile', error);
 	}
 }
+
 
 export default router
