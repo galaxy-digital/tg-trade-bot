@@ -27,7 +27,7 @@ Model.connect().then(async ()=>{
 		const app = express()
 		const server = http.createServer(app)
 		let httpsServer = null as any;
-		const file_key = __dirname+'/../certs/labibot.xyz.key';
+		/* const file_key = __dirname+'/../certs/labibot.xyz.key';
 		const file_crt = __dirname+'/../certs/labibot.xyz.crt';
 		const file_ca = __dirname+'/../certs/labibot.xyz.ca-bundle';
 		if (fs.existsSync(file_key) && fs.existsSync(file_crt) && fs.existsSync(file_ca)) {
@@ -40,6 +40,16 @@ Model.connect().then(async ()=>{
 			httpsServer = https.createServer(options,app)
 		} else {
 			console.log("Do not find ssl files, disabled ssl features.")
+		} */
+		const file_key = __dirname+'/../certs/cert.key';
+		const file_crt = __dirname+'/../certs/cert.crt';
+		if (fs.existsSync(file_key) && fs.existsSync(file_crt)) {
+			const key = fs.readFileSync(file_key, 'utf8')
+			const cert = fs.readFileSync(file_crt, 'utf8')
+			const options = {cert,key}
+			httpsServer = https.createServer(options,app)
+		} else {
+			console.log("Did not find ssl files, disabled ssl features.")
 		}
 
 		app.use(cors({
