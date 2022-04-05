@@ -22,6 +22,8 @@ const botName = (isDev ? process.env.DEV_BOT_NAME : process.env.BOT_NAME) || ''
 const PREFIX_POST = "ff"
 const PREFIX_ORDER = "fe"
 
+const defaultMessage = `购买和对接联系 @fucktgg，群  @heise123，系统正在完善（部分商品因网盘过期和源头离线 需咨询购买）`
+
 router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 	try {
 		const { url } = req.body
@@ -147,6 +149,8 @@ const parseMessage = async (body:any):Promise<boolean> => {
 					}
 				} else if (fn==='image') {
 					await showImage(chat.id, args)
+				} else if (fn==='default') {
+					await showDefault(chat.id)
 				}
 			}
 		}
@@ -260,9 +264,9 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 			let re = /(<([^>]+)>)/ig
 			lists.push( '🎁' + row.title.replace(re, '') )
 			lists.push( row.contents.replace(re, '').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n').replace(/\r\n\r\n/g, '\r\n') )
-			lists.push(`价格: US$ ${row.price}`)
+			// lists.push(`价格: US$ ${row.price}`)
 			
-			const cmds = [ { text: "购买", url: `https://t.me/${botAdmin}`} ] as Array<{ text:string, url?:string, callback_data?:string }>
+			const cmds = [ { text: "购买", callback_data: `default()`} ] as Array<{ text:string, url?:string, callback_data?:string }>
 			if (files.length!==0) {
 				const i = files[0]
 				cmds.push({ text: "查看图片", callback_data: `image(${ i.id })` })
@@ -306,6 +310,20 @@ const showImage = async (chat_id:number, imageId:string)=>{
 		api.sendPhoto(json)
 	} catch (error) {
 		setlog('bot-showImage', error);
+	}
+}
+
+const showDefault = async (chat_id:number)=>{
+	try {
+		let json = {
+			chat_id,
+			text: defaultMessage,
+			parse_mode:'html',
+			disable_web_page_preview:true
+		}
+		api.send(json)
+	} catch (error) {
+		setlog('bot-showDefault', error);
 	}
 }
 
