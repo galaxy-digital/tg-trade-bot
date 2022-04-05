@@ -21,6 +21,7 @@ declare interface SchemaUsers {
 	fullname: 		string
 	balance:		number
 	updated:		number
+	created:		number
 }
 
 declare interface SchemaPosts {
