@@ -37,7 +37,7 @@ router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 
 router.post("/webhook", (req:express.Request, res:express.Response)=>{
 	try {
-		fs.appendFileSync(__dirname + '/../response.json', JSON.stringify(req.body, null, '\t'))
+		// fs.appendFileSync(__dirname + '/../response.json', JSON.stringify(req.body, null, '\t'))
 		parseMessage(req.body)
 	} catch (error) {
 		setlog("bot-webhook", error)
@@ -387,8 +387,10 @@ const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=
 			[
 				// { "text": "📥充值","callback_data": "deposit()" },
 				// {"text": "📤提现","callback_data": "withdraw"}
-				{ text: "📥充值", url: `https://t.me/${botAdmin}` },
-				{ text: "📤提现", url: `https://t.me/${botAdmin}` }
+				{ text: "📥充值", callback_data: `default()` },
+				{ text: "📤提现", callback_data: `default()` }
+				/* { text: "📥充值", url: `https://t.me/${botAdmin}` },
+				{ text: "📤提现", url: `https://t.me/${botAdmin}` } */
 			],
 			[
 				{ text: "👩🏻‍🦰联系管理", url: `https://t.me/${botAdmin}` }
