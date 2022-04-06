@@ -57,12 +57,22 @@ router.get("/assets/:id",async (req:express.Request, res:express.Response)=>{
 
 router.get("/update-database",async (req:express.Request, res:express.Response)=>{
 	try {
-		const rows = await Posts.find({ title:{ $regex: /美金/ } }).toArray()
-		for (let i of rows) {
-			const title = i.title.replace(/\d+美金/, '')
-			await Posts.updateOne({ _id:i._id }, { $set: { title } })
+		const filters = [
+			/条\d+美金/,
+			/\d+美金/,
+			/美金/,
+			/\d+美元/,
+		]
+		let count = 0
+		for (let $regex of filters) {
+			const rows = await Posts.find({ title:{ $regex } }).toArray()
+			for (let i of rows) {
+				const title = i.title.replace($regex, '')
+				await Posts.updateOne({ _id:i._id }, { $set: { title } })
+			}
+			count += rows.length
 		}
-		res.json({ updated:rows.length })
+		res.json({ count })
 	} catch (error) {
 		res.status(404).send('not found resource')
 	}
