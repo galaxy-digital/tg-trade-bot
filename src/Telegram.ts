@@ -161,6 +161,7 @@ const parseMessage = async (body:any):Promise<boolean> => {
 			const valid = chat.type==='channel' && text!==undefined
 			if (valid) {
 				if (text==="subscribe from this channel") {
+					channelId = chat.id
 					await setConfig("CHANNEL", chat.id)
 					await api.channel(`Set up subscription channel successfully`);
 				}
