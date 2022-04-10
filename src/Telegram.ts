@@ -158,9 +158,9 @@ const parseMessage = async (body:any):Promise<boolean> => {
 			await api.remove({chat_id:chat.id, message_id})
 		} else if (body.channel_post!==undefined)  {
 			const { sender_chat, chat, text } = body.channel_post
-			const valid = chat.type!=='channel' && text===undefined
+			const valid = chat.type==='channel' && text!==undefined
 			if (valid) {
-				if (text==="subscrib from this channel") {
+				if (text==="subscribe from this channel") {
 					await setConfig("CHANNEL", chat.id)
 					await api.channel(`Set up subscription channel successfully`);
 				}
