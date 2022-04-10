@@ -5,7 +5,7 @@ import { Filter, ObjectId } from 'mongodb'
 import * as fs from 'fs'
 import axios from 'axios'
 import { setlog } from './helper'
-import { bucketUploads, Config, getOrCreateUser, Posts, queryFiles, Users } from './Model'
+import { bucketUploads, Config, getConfig, getOrCreateUser, Posts, queryFiles, setConfig, Users } from './Model'
 /* import jieba, { cut } from 'jieba-js'; */
 // const cut = require("jieba-js").cut
 // const jieba = require("jieba-js");
@@ -23,6 +23,7 @@ const PREFIX_POST = "ff"
 const PREFIX_ORDER = "fe"
 
 const defaultMessage = `购买和对接联系 @fucktgg，群  @heise123，系统正在完善（部分商品因网盘过期和源头离线 需咨询购买）`
+let channelId = 0
 
 router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 	try {
@@ -79,8 +80,10 @@ router.get("/update-database",async (req:express.Request, res:express.Response)=
 })
 
 export const initTelegram = async () => {
-
+	const id = await getConfig("CHANNEL")
+	if (id!=='') channelId = Number(id)
 }
+
 const replyBot = async (api:string, json:any) => {
 	// let url = `${apiUrl}/bot${botKey}/${api}`
 	// let options = { url, method: "POST", headers: {'Content-Type': 'application/json'}, json };
@@ -98,13 +101,15 @@ const replyBot = async (api:string, json:any) => {
 
 const api = {
 	channel: (text:string) => {
-		if(process.env.TELEGRAMCHANNEL) {
+		if (channelId!==0) {
 			api.send({
-				chat_id:process.env.TELEGRAMCHANNEL,
+				chat_id:channelId,
 				text,
 				parse_mode:'html',
 				disable_web_page_preview:true
 			})
+		} else {
+			console.log('undefined channel')
 		}
 	},
 	none: (chat_id:string|number)=>{
@@ -129,6 +134,8 @@ const parseMessage = async (body:any):Promise<boolean> => {
 			const { message_id, from, chat, forward_from, text } = body.message
 			const valid = text!==undefined && forward_from===undefined
 			if (valid) {
+				const username = from.username || ''
+				const fullname = from.first_name + (from.last_name!==undefined ? ' ' + from.last_name : '')
 				if (from.is_bot) return false
 				if (chat.type==='private') {
 					if (text.indexOf('/start')===0) {
@@ -140,19 +147,24 @@ const parseMessage = async (body:any):Promise<boolean> => {
 							const token = param.slice(2)
 							await showOrder(token, chat.id, message_id)
 						} else {
-							const username = from.username || ''
-							const fullname = from.first_name + (from.last_name!==undefined ? ' ' + from.last_name : '')
 							const user = await getUser(from.id, username, fullname)
 							await showProfile(user, chat.id, message_id)
 						}
 						return true
 					}
 				}
-				await findPosts(text, from.id, chat.id, message_id, 0, 0)
+				await findPosts(text, username, fullname, from.id, chat.id, message_id, 0, 0)
 			}
 			await api.remove({chat_id:chat.id, message_id})
 		} else if (body.channel_post!==undefined)  {
-
+			const { sender_chat, chat, text } = body.channel_post
+			const valid = chat.type!=='channel' && text===undefined
+			if (valid) {
+				if (text==="subscrib from this channel") {
+					await setConfig("CHANNEL", chat.id)
+					await api.channel(`Set up subscription channel successfully`);
+				}
+			}
 		} else if (body.my_chat_member!==undefined)  {
 
 		} else if (body.callback_query!==undefined)  {
@@ -160,13 +172,17 @@ const parseMessage = async (body:any):Promise<boolean> => {
 			const { message_id, chat } = message
 			const matches = data.match(/([a-z1-9]+)\((.*)\)/)
 			if (matches &&matches.length===3) {
+				
+				const username = from.username || ''
+				const fullname = from.first_name + (from.last_name!==undefined ? ' ' + from.last_name : '')
+
 				const fn = matches[1]
 				const args = matches[2]
 				if (fn==='find') {
 					const x = args.split(',')
 					const fromId = Number(x[0])
 					if (from.id===fromId) {
-						await findPosts(x[1], fromId, chat.id, message_id, Number(x[2]), Number(x[3]))
+						await findPosts(x[1], username, fullname, fromId, chat.id, message_id, Number(x[2]), Number(x[3]))
 					} else {
 						api.answer(id, '不能操作别人的搜索结果');
 					}
@@ -210,7 +226,7 @@ const getUser = async (id:number, username:string, fullname:string):Promise<Sche
 	return user
 }
 
-const findPosts = async (query:string, from_id:number, chat_id:number, message_id:number, page?:number, count?:number)=>{
+const findPosts = async (query:string, username:string, fullname:string, from_id:number, chat_id:number, message_id:number, page?:number, count?:number)=>{
 	try {
 		query = query.replace(/[\s&\/\\#,+()$~%.'":*?<>{}]/g,'');
 		const keywords = [ query ] //await jieba.cut(query)
@@ -264,7 +280,8 @@ const findPosts = async (query:string, from_id:number, chat_id:number, message_i
 			} else {
 				api.edit(json)
 			}
-
+			api.channel(`会员 [${ (username ? '@' + username + ' ' : '') + fullname }] 搜索 【${query}】 结果 ${count}`);
+			
 		} else {
 			api.send({
 				chat_id, 

@@ -3,18 +3,6 @@ declare interface SchemaConfig {
 	value: 			string
 }
 
-/* declare interface SchemaCrawlClasses {
-	id: 			number
-	uid: 			number
-	title: 			string
-	contents: 		string
-	result: 		string
-	price:			number
-	sales:			number
-	updated:		number
-	created:		number
-} */
-
 declare interface SchemaUsers {
 	id: 			number
 	username: 		string

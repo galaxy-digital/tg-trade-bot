@@ -60,7 +60,7 @@ export const queryFiles = async (id:number):Promise<Array<UploadFileType>> => {
 	return result
 }
 
-export type KeyType = 'CRAWL_LAST'
+export type KeyType = 'CRAWL_LAST'|'CHANNEL'
 
 export const getConfig = async (key:KeyType):Promise<string> => {
 	const row = await Config.findOne({ key })
