@@ -4,8 +4,8 @@ import * as express from 'express'
 import { Filter, ObjectId } from 'mongodb'
 import * as fs from 'fs'
 import axios from 'axios'
-import { setlog } from './helper'
-import { bucketUploads, Config, getConfig, getOrCreateUser, Posts, queryFiles, setConfig, Users } from './Model'
+import { setlog } from '../helper'
+import { bucketUploads, Config, getConfig, getOrCreateUser, Posts, queryFiles, setConfig, Users } from '../Model'
 /* import jieba, { cut } from 'jieba-js'; */
 // const cut = require("jieba-js").cut
 // const jieba = require("jieba-js");
