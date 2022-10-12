@@ -201,10 +201,10 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 				}
 				res=await fetchPost(`http://${host}/viewtopic.php?tid=${i._id}`);
 				if(res) break;
-				sendAll(`数据号 #${i._id}爬虫失败，重试 ${k+1}次`);
+				sendAll(`数据 #${i._id}号 获取失败，重试 ${k+1}次`);
 			}
 			if(!res) {
-				sendAll(`数据号 #${i._id}爬虫失败，爬虫`);
+				sendAll(`数据 #${i._id}号 获取失败`);
 				continue;
 			}
 			const $=cheerio.load(res);

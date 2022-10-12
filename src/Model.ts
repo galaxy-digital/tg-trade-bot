@@ -18,11 +18,7 @@ const connect = async () => {
 	try {
 		await client.connect()
 		setlog('connected to MongoDB')
-		DConfig.createIndex( {key: 1}, { unique: true })
-		DUsers.createIndex( {userId: 1}, { unique: true })
-		DUsers.createIndex( {id: 1}, { unique: true })
-		DPosts.createIndex( {id: 1}, { unique: true })
-
+		DConfig.createIndex( {key: 1}, { unique: true, name: 'cnf_key' });
 	} catch (error) {
 		console.error('Connection to MongoDB failed', error)
 		process.exit()
