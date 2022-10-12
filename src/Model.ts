@@ -1,10 +1,10 @@
-require('dotenv').config()
 import { GridFSBucket, MongoClient } from 'mongodb';
 import { Readable } from 'stream';
 import { setlog } from './helper';
-const dbname = process.env.DB_NAME || 'dice'
+import config from './config.json';
+
 const client = new MongoClient('mongodb://localhost:27017');
-const db = client.db(dbname);
+const db = client.db(config.database);
 
 export const DConfig = 		db.collection<SchemaConfig>('config');
 export const DUsers = 		db.collection<SchemaUser>('users');
