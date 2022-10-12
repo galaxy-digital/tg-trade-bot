@@ -1,29 +1,31 @@
-require("dotenv").config()
-const isDev = process.env.NODE_ENV==="development"
+// require("dotenv").config()
+// const isDev = process.env.NODE_ENV==="development"
 import * as express from 'express'
 import { Filter, ObjectId } from 'mongodb'
 import * as fs from 'fs'
 import axios from 'axios'
 import { setlog } from '../helper'
-import { bucketUploads, Config, getConfig, getOrCreateUser, Posts, queryFiles, setConfig, Users } from '../Model'
+import { bucketUploads, DConfig, getConfig, DPosts, queryFiles, setConfig, DUsers } from '../Model'
+import config from '../config.json';
+
 /* import jieba, { cut } from 'jieba-js'; */
 // const cut = require("jieba-js").cut
 // const jieba = require("jieba-js");
-const router = express.Router()
+const router = express.Router();
 
-const now = () => Math.round(new Date().getTime()/1000)
+const now = () => Math.round(new Date().getTime()/1000);
 
-const apiUrl = isDev ? 'https://api.telegram.org' : 'https://api.telegram.org'
-const serverUrl = process.env.SERVERURL || ''
-const botAdmin = process.env.BOT_ADMIN || ''
-const botKey = (isDev ? process.env.DEV_BOT_KEY : process.env.BOT_KEY) || ''
-const botName = (isDev ? process.env.DEV_BOT_NAME : process.env.BOT_NAME) || ''
+const apiUrl = 'https://api.telegram.org';
+const serverUrl = config.serverUrl;
+const botAdmin = config.bot.admin;
+const botKey = config.bot.key;
+const botName = config.bot.name;
 
-const PREFIX_POST = "ff"
-const PREFIX_ORDER = "fe"
+const PREFIX_POST = "ff";
+const PREFIX_ORDER = "fe";
 
-const defaultMessage = `购买和对接联系 @fucktgg，群  @heise123，系统正在完善（部分商品因网盘过期和源头离线 需咨询购买）`
-let channelId = 0
+const defaultMessage = `购买和对接联系 @fucktgg，群  @heise123，系统正在完善（部分商品因网盘过期和源头离线 需咨询购买）`;
+let channelId = 0;
 
 router.post("/set-webhook", async (req:express.Request, res:express.Response)=>{
 	try {
@@ -66,10 +68,10 @@ router.get("/update-database",async (req:express.Request, res:express.Response)=
 		]
 		let count = 0
 		for (let $regex of filters) {
-			const rows = await Posts.find({ title:{ $regex } }).toArray()
+			const rows = await DPosts.find({ title:{ $regex } }).toArray()
 			for (let i of rows) {
 				const title = i.title.replace($regex, '')
-				await Posts.updateOne({ _id:i._id }, { $set: { title } })
+				await DPosts.updateOne({ _id:i._id }, { $set: { title } })
 			}
 			count += rows.length
 		}
@@ -141,8 +143,8 @@ const parseMessage = async (body:any):Promise<boolean> => {
 					if (text.indexOf('/start')===0) {
 						const param = text.slice(7)
 						if (param.slice(0,2)===PREFIX_POST) {
-							const token = param.slice(2)
-							await showPost(token, chat.id, message_id)
+							const id = Number(param.slice(2))
+							await showPost(id, chat.id, message_id)
 						} else if (param.slice(0,2)===PREFIX_ORDER) {
 							const token = param.slice(2)
 							await showOrder(token, chat.id, message_id)
@@ -204,27 +206,28 @@ const parseMessage = async (body:any):Promise<boolean> => {
 
 
 
-const getUser = async (id:number, username:string, fullname:string):Promise<SchemaUsers> => {
-	const user = await Users.findOne({ id })
+const getUser = async (_id: number, username: string, fullname: string):Promise<SchemaUser> => {
+	const user = await DUsers.findOne({ _id });
 	if (user===null) {
 		const $set = {
-			id, 
+			_id, 
 			username,
 			fullname,
 			balance: 0,
 			updated:now(),
 			created:now()
-		} as SchemaUsers
-		await Users.updateOne( { id }, { $set }, { upsert:true } )
-		return $set
+		} as SchemaUser;
+		await DUsers.updateOne( { _id }, { $set }, { upsert:true } );
+		return $set;
+	} else {
+		const $set = {} as Partial<SchemaUser>;
+		if (user.username!==username) $set.username = username;
+		if (user.fullname!==fullname) $set.fullname = fullname;
+		if (Object.keys($set).length!==0) {
+			await DUsers.updateOne({_id}, {$set: {...$set, updated:now()}});
+		}
 	}
-	await Users.updateOne( { id }, { $set:{
-		id, 
-		username,
-		fullname,
-		updated:now()
-	} } )
-	return user
+	return user;
 }
 
 const findPosts = async (query:string, username:string, fullname:string, from_id:number, chat_id:number, message_id:number, page?:number, count?:number)=>{
@@ -241,7 +244,7 @@ const findPosts = async (query:string, username:string, fullname:string, from_id
 		// const where = { title: { $regex: query, $options: 'i' } }
 		let isUpdate = false
 		if ( count===0 ) {
-			const res = await Posts.count(where)
+			const res = await DPosts.count(where)
 			count = Number(res)
 		} else {
 			isUpdate = true
@@ -252,7 +255,7 @@ const findPosts = async (query:string, username:string, fullname:string, from_id
 			total = Math.ceil(count / limit)
 			if ( page >= total ) page = total - 1
 			if ( page < 0 ) page = 0
-			const rows = await Posts.find(where).sort({ created:-1 }).skip(page * limit).limit(limit).toArray()
+			const rows = await DPosts.find(where).sort({ created:-1 }).skip(page * limit).limit(limit).toArray()
 
 			const lists = [ `关键词 <b>[${query}]</b>搜索结果 ${count}中 ${page + 1} / ${total}页` ] as string[]
 			const cmds = [] as Array<{ text:string, url?:string, callback_data?:string }>
@@ -296,11 +299,11 @@ const findPosts = async (query:string, username:string, fullname:string, from_id
 	}
 }
 
-const showPost = async (token:string, chat_id:number, message_id:number)=>{
+const showPost = async (_id: number, chat_id:number, message_id:number)=>{
 	try {
-		let row = await Posts.findOne({ _id: new ObjectId(token), status:100 });
+		let row = await DPosts.findOne({ _id, status:100 });
 		if ( row!==null ) {
-			const files = await queryFiles(row.id)
+			// const files = await queryFiles(row.id)
 			let lists = [] as string[]
 			let re = /(<([^>]+)>)/ig
 			lists.push( '🎁' + row.title.replace(re, '') )
@@ -308,10 +311,10 @@ const showPost = async (token:string, chat_id:number, message_id:number)=>{
 			// lists.push(`价格: US$ ${row.price}`)
 			
 			const cmds = [ { text: "购买", callback_data: `default()`} ] as Array<{ text:string, url?:string, callback_data?:string }>
-			if (files.length!==0) {
-				const i = files[0]
-				cmds.push({ text: "查看图片", callback_data: `image(${ i.id })` })
-			}
+			// if (files.length!==0) {
+			// 	const i = files[0]
+			// 	cmds.push({ text: "查看图片", callback_data: `image(${ i.id })` })
+			// }
 
 			let json = {
 				chat_id,
@@ -348,7 +351,7 @@ const showImage = async (chat_id:number, imageId:string)=>{
 			chat_id,
 			photo: `${serverUrl}/api/telegram/image/${imageId}`
 		};
-		api.sendPhoto(json)
+		api.sendPhoto(json);
 	} catch (error) {
 		setlog('bot-showImage', error);
 	}
@@ -410,11 +413,11 @@ const showOrder = async (token:string, chat_id:number, message_id:number)=>{
 
 
 
-const showProfile = async (user:SchemaUsers, chat_id:number, message_id:number)=>{
+const showProfile = async (user:SchemaUser, chat_id:number, message_id:number)=>{
 	try {
 		let lists = [] as string[]
 		lists.push( `您好 <b>${ user.fullname || user.username }</b>` )
-		lists.push( `您的账户ID是: <b>#${user.id}</b>` )
+		lists.push( `您的账户ID是: <b>#${user._id}</b>` )
 		lists.push( `💰余额: ${user.balance}₿` )
 		
 		let inline_keyboard = [

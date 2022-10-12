@@ -188,15 +188,17 @@
 				if (state.connected===2) {
 					btnConnect.disabled = true;
 					btnStart.disabled = false;
+					btnRestart.disabled = false;
 					inputCookie.disabled = state.started;
 					inputPid.disabled = state.started;
 					inputCount.disabled = state.started;
 				} else {
 					btnConnect.disabled = state.connected===1;
 					btnStart.disabled = true;
-					inputCookie.disabled = false;
-					inputPid.disabled = false;
-					inputCount.disabled = false;
+					btnRestart.disabled = true;
+					inputCookie.disabled = true;
+					inputPid.disabled = true;
+					inputCount.disabled = true;
 				}
 			}
 			updateUI();

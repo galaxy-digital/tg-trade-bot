@@ -3,8 +3,8 @@ declare interface SchemaConfig {
 	value: 			string
 }
 
-declare interface SchemaUsers {
-	id: 			number
+declare interface SchemaUser {
+	_id: 			number
 	username: 		string
 	fullname: 		string
 	balance:		number

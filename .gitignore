@@ -15,3 +15,6 @@ package-lock.json
 response.json
 yarn.lock
 test.js
+
+config.json
+config.*.json
