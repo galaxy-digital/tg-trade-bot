@@ -118,18 +118,18 @@ const fetchPost = (url:string) => {
 	})
 }
 
-const crawl = async (isContinue, pid:number, count:number) => {
+const crawl = async (isContinue: boolean, pid:number, count:number) => {
 	if (!isContinue) {
 		await DTmpCrawl.deleteMany({});
 		await DTmpPosts.deleteMany({});
 	}
-	await DTmpCrawl.bulkWrite(Array(count).fill(0).map((i, k)=>{
+	const d = Array(count).fill(0).map((i, k)=>{
 		if (isContinue) {
 			return {
 				updateOne: {
 					filter: {_id: k + 1},
 					update: {$setOnInsert: {updated: 0}},
-					upset: true
+					upsert: true
 				}
 			}
 		}
@@ -137,10 +137,11 @@ const crawl = async (isContinue, pid:number, count:number) => {
 			updateOne: {
 				filter: {_id: k + 1},
 				update: {$set: {updated: 0}},
-				upset: true
+				upsert: true
 			}
 		}
-	}))
+	})
+	const r = await DTmpCrawl.bulkWrite(d)
 	await crawlIndex(pid);
 	await crawlPosts();
 }
