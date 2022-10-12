@@ -153,9 +153,9 @@ const crawlIndex = async (pid:number):Promise<Array<SchemaPost>|false>=>{
 		if (rows.length) {
 			sendAll("开始数据索引...");
 			for (let row of rows) {
-				const i = row._id
+				const page = row._id
 				//ea.php?ea=10009&pagea=45#pagea
-				let url = `http://${host}/ea.php?ea=${pid}${i==1 ? '' : '&pagea=' + i + '#pagea'}`
+				let url = `http://${host}/ea.php?ea=${pid}${page==1 ? '' : '&pagea=' + page + '#pagea'}`
 				for (let k = 1; k < 10; k++) {
 					if (!state.started) {
 						sendAll("用户停止抓取.");
@@ -197,7 +197,7 @@ const crawlIndex = async (pid:number):Promise<Array<SchemaPost>|false>=>{
 							}
 						});
 						if (result.length===0) {
-							sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);
+							sendAll(`Failed Page ${page}, seems the cookie expired. change cookie and try again.`);
 							sendAll(``);
 							return false;
 						}
@@ -208,13 +208,14 @@ const crawlIndex = async (pid:number):Promise<Array<SchemaPost>|false>=>{
 								upsert: true
 							}
 						})));
-						sendAll(`Page ${i} record count ${result.length} spent ${+new Date() - time}ms`);
+						await DTmpCrawl.updateOne({_id: page}, {$set: {updated: now()}});
+						sendAll(`Page ${page} record count ${result.length} spent ${+new Date() - time}ms`);
 						
 						
 						state.start = k;
 						break;
 					} else {
-						sendAll(`在 ${i} 页爬网失败 - 重试 ${k}次`);
+						sendAll(`在 ${page} 页爬网失败 - 重试 ${k}次`);
 						await new Promise(resolve=>setTimeout(resolve,100));
 					}
 				}
