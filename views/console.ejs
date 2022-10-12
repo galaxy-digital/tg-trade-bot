@@ -107,7 +107,8 @@
 					if (cookie==='') return echo("Please input cookie of active session.");
 					if (isNaN(pid)) return echo("Please input correct pid value.");
 					if (isNaN(count)) return echo("Please input correct page count.");
-
+					saveParam();
+					
 					state.started = !state.started;
 					inputCookie.disabled = state.started;
 					updateUI();
@@ -179,7 +180,7 @@
 			const sendJson = (method, params) => {
 				const json = {method};
 				if (params!==undefined) json.params = params;
-				socket.send(JSON.stringify(json));
+				state.socket.send(JSON.stringify(json));
 			}
 
 			const updateUI = () => {
@@ -199,7 +200,26 @@
 					inputCount.disabled = true;
 				}
 			}
+
+			const saveParam = (cookie, pid, count) => {
+				window.localStorage.setItem("console", JSON.stringify({cookie, pid, count}));
+			}
+
+			const loadParam = () => {
+				try {
+					const buf = window.localStorage.getItem("console")
+					if (buf) {
+						const {cookie, pid, count} = JSON.parse(buf);
+						if (cookie) inputCookie.value = cookie;
+						if (pid) inputPid.value = pid;
+						if (count) inputCount.value = count;
+					}
+				} catch (error) {
+					console.log(error)
+				}
+			}
 			updateUI();
+			loadParam();
 		});
 	</script>
 </html>
