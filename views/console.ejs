@@ -60,9 +60,9 @@
 				<label for="cookie">Cookie:</label>
 				<input type="text" id="cookie">
 				<label for="pid">PID:</label>
-				<input type="number" min="1" id="pid">
+				<input type="number" min="1" id="pid" value="10001">
 				<label for="count">Page Count:</label>
-				<input type="number" min="1" id="count">
+				<input type="number" min="1" id="count" value="342">
 				<button id="continue">开始</button>
 				<button id="restart">重启</button>
 				<button id="connect">连接</button>
@@ -101,24 +101,22 @@
 			}
 			const onStart = (restart=false) => {
 				if (state.connected===2) {
-					if (!state.started)  {
-						const cookie = inputCookie.value.trim();
-						const pid = Number(inputPid.value);
-						const count = Number(inputCount.value);
-						if (cookie==='') return echo("Please input cookie of active session.");
-						if (isNaN(pid)) return echo("Please input correct pid value.");
-						if (isNaN(count)) return echo("Please input correct page count.");
+					const cookie = inputCookie.value.trim();
+					const pid = Number(inputPid.value);
+					const count = Number(inputCount.value);
+					if (cookie==='') return echo("Please input cookie of active session.");
+					if (isNaN(pid)) return echo("Please input correct pid value.");
+					if (isNaN(count)) return echo("Please input correct page count.");
 
-						state.started = !state.started;
-						inputCookie.disabled = state.started;
-						updateUI();
-						if (state.started) {
-							btnStart.innerHTML = "停止";
-							sendJson(restart ? "restart" : "start", [cookie, pid, count]);
-						} else {
-							btnStart.innerHTML = "开始";
-							sendJson("stop");
-						}
+					state.started = !state.started;
+					inputCookie.disabled = state.started;
+					updateUI();
+					if (state.started) {
+						btnStart.innerHTML = "停止";
+						sendJson(restart ? "restart" : "start", [cookie, pid, count]);
+					} else {
+						btnStart.innerHTML = "开始";
+						sendJson("stop");
 					}
 				} else if (state.connected===1) {
 					echo("Now You are connecting to server.")

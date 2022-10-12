@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 import http from 'http';
 import express from 'express';
 import cors from 'cors'
@@ -8,9 +6,10 @@ import Api, {initTelegram} from './bot'
 import Crawling, { initSocket } from './Crawling'
 import {setlog} from './helper';
 import Model from './Model'
+import config from './config.json'
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-const port = Number(process.env.HTTP_PORT || 80)
+const port = config.port
 
 process.on("uncaughtException", (error) => setlog('exception', error));
 process.on("unhandledRejection", (error) => setlog('rejection', error));
