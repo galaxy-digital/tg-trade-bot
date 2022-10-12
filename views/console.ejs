@@ -153,7 +153,10 @@
 
 				socket.onmessage = (e) => {
 					// echo(`[message] Data received from server: ${e.data}`);
-					if (e.data!=='用户停止抓取.') {
+					if (e.data==='') {
+						state.started = false;
+						updateUI();
+					} else if (e.data!=='用户停止抓取.') {
 						if (!state.started) {
 							state.started = true;
 							updateUI();

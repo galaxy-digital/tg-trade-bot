@@ -140,6 +140,7 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 			for (let k = 1; k < 10; k++) {
 				if (!state.started) {
 					sendAll("用户停止抓取.");
+					sendAll(``);
 					state.started = false;
 					return false;
 				}
@@ -177,7 +178,8 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 						}
 					});
 					if (count ===0) {
-						sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);	
+						sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);
+						sendAll(``);
 						return false;
 					}
 					sendAll(`Page ${i} record count ${count} spent ${+new Date() - time}ms`);
@@ -209,6 +211,7 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 				if (!state.started) {
 					sendAll("用户停止抓取.");
 					state.started = false;
+					sendAll(``);
 					return false;
 				}
 				res=await fetchPost(`http://${host}/viewtopic.php?tid=${i._id}`);
@@ -359,6 +362,7 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 			})));
 		}
 		sendAll(`爬虫成功 - 写入数据 数量 ${items.length} - ${+new Date() - time}ms`);
+		sendAll(``);
 	} catch (error) {
 		sendAll(`获取数据中未知错误 ${error.message}`);
 	}
