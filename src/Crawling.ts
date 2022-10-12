@@ -63,7 +63,7 @@ export const Actions = {
 				const [cookie, pid, count] = params as [cookie: string, pid: number, count: number];
 				headers.Cookie = cookie;
 				state.started = true;
-				state.start = 0;
+				// state.start = 0;
 				crawl(pid, count);
 			} else if (method==='start' && params!==undefined) {
 				const [cookie, pid, count] = params as [cookie: string, pid: number, count: number];
@@ -142,9 +142,9 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 				let time = +new Date();
 				let res=await fetchPost(url);
 				if (res) {
-					sendAll(`Page ${i} spent ${+new Date() - time}ms`);
 					const $ = cheerio.load(res);
 					// let lastId = 0
+					let count = 0;
 					$('div.length_500').each((i:any, v:any)=>{
 						for(let m of v.children) {
 							if(m.tagName=='a') {
@@ -166,11 +166,17 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 										updated:	0,
 										created:	0,
 									});
+									count++;
 								}
 								break;
 							}
 						}
 					});
+					sendAll(`Page ${i} record count ${count} spent ${+new Date() - time}ms`);
+					if (count) {
+						
+					}
+					
 					state.start = k;
 					break;
 				} else {
