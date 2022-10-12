@@ -291,9 +291,9 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 
 				// 	}
 				// }, {upsert: true})
-				sendAll(`数据号 #${i._id}爬虫成功 ${+new Date() - time}ms`);
+				sendAll(`数据 #${i._id}号 获取成功 ${+new Date() - time}ms`);
 			}else{
-				sendAll(`数据号 #${i._id} 是空的 ${+new Date() - time}ms`);
+				sendAll(`数据 #${i._id}号 是空的 ${+new Date() - time}ms`);
 			}
 		}
 		
