@@ -301,7 +301,7 @@ const findPosts = async (query:string, username:string, fullname:string, from_id
 
 const showPost = async (_id: number, chat_id:number, message_id:number)=>{
 	try {
-		let row = await DPosts.findOne({ _id, status:100 });
+		let row = await DPosts.findOne({ _id, status:true });
 		if ( row!==null ) {
 			// const files = await queryFiles(row.id)
 			let lists = [] as string[]
