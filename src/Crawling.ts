@@ -346,7 +346,7 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 				}
 			})));
 		}
-		sendAll(`爬虫成功 - 写入数据 #${items.length} ${+new Date() - time}ms`);
+		sendAll(`爬虫成功 - 写入数据 数量 ${items.length} - ${+new Date() - time}ms`);
 	} catch (error) {
 		sendAll(`获取数据中未知错误 ${error.message}`);
 	}
