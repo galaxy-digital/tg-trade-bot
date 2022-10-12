@@ -8,7 +8,7 @@ import * as express from 'express'
 import * as fs from 'fs'
 import * as path from 'path'
 import { setlog } from './helper'
-import { addFile, getConfig, DPosts, setConfig, DUsers } from './Model'
+import { addFile, getConfig, DPosts, setConfig, DUsers, DTmpCrawl, DTmpPosts } from './Model'
 import Socket from './lib/Socket';
 const tor = require('tor-request');
 const cheerio = require('cheerio');
@@ -59,17 +59,13 @@ export const Actions = {
 	onData(con: websocket.connection, msg: string, ip: string, cookie: string) {
 		try {
 			const {method, params} = JSON.parse(msg) as {method: string, params?: string[]};
-			if (method==='restart' && params!==undefined) {
+			const isContinue = method==='start';
+			const isRestart = method==='restart';
+			if ((isContinue || isRestart) && params!==undefined) {
 				const [cookie, pid, count] = params as [cookie: string, pid: number, count: number];
 				headers.Cookie = cookie;
 				state.started = true;
-				// state.start = 0;
-				crawl(pid, count);
-			} else if (method==='start' && params!==undefined) {
-				const [cookie, pid, count] = params as [cookie: string, pid: number, count: number];
-				headers.Cookie = cookie;
-				state.started = true;
-				crawl(pid, count);
+				crawl(isContinue, pid, count);
 			} else if (method==='stop') {
 				state.started = false;
 			}
@@ -122,89 +118,122 @@ const fetchPost = (url:string) => {
 	})
 }
 
-const crawl = (pid:number, count:number) => {
-	crawlIndex(pid, count).then(result=>{
-		if (result!==false && result.length!==0) {
-			crawlPosts(result)
-		}
-	});
-}
-
-const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|false>=>{
-	const result = [] as Array<SchemaPost>;
-	try {
-		sendAll("开始数据索引...");
-		for (let i = state.start + 1; i <= count; i++) {
-			//ea.php?ea=10009&pagea=45#pagea
-			let url = `http://${host}/ea.php?ea=${pid}${i==1 ? '' : '&pagea=' + i + '#pagea'}`
-			for (let k = 1; k < 10; k++) {
-				if (!state.started) {
-					sendAll("用户停止抓取.");
-					sendAll(``);
-					state.started = false;
-					return false;
-				}
-				let time = +new Date();
-				let res=await fetchPost(url);
-				if (res) {
-					const $ = cheerio.load(res);
-					// let lastId = 0
-					let count = 0;
-					$('div.length_500').each((i:any, v:any)=>{
-						for(let m of v.children) {
-							if(m.tagName=='a') {
-								let url=m.attribs.href;
-								if (url && url.indexOf('viewtopic.php?tid=')===0) {
-									let _id = Number(url.slice(18));
-									let title=m.firstChild.data.trim();
-									result.push({
-										_id,
-										pid,
-										uid: 0,
-										username: '',
-										title,
-										contents: 	'',
-										result: 	'',
-										price:		0,
-										sales:		0,
-										status:		false,
-										updated:	0,
-										created:	0,
-									});
-									count++;
-								}
-								break;
-							}
-						}
-					});
-					if (count ===0) {
-						sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);
-						sendAll(``);
-						return false;
-					}
-					sendAll(`Page ${i} record count ${count} spent ${+new Date() - time}ms`);
-					
-					
-					state.start = k;
-					break;
-				} else {
-					sendAll(`在 ${i} 页爬网失败 - 重试 ${k}次`);
-					await new Promise(resolve=>setTimeout(resolve,1000));
+const crawl = async (isContinue, pid:number, count:number) => {
+	if (!isContinue) {
+		await DTmpCrawl.deleteMany({});
+		await DTmpPosts.deleteMany({});
+	}
+	await DTmpCrawl.bulkWrite(Array(count).fill(0).map((i, k)=>{
+		if (isContinue) {
+			return {
+				updateOne: {
+					filter: {_id: k + 1},
+					update: {$setOnInsert: {updated: 0}},
+					upset: true
 				}
 			}
 		}
-		sendAll("完成数据索引.");
-		return result
+		return {
+			updateOne: {
+				filter: {_id: k + 1},
+				update: {$set: {updated: 0}},
+				upset: true
+			}
+		}
+	}))
+	await crawlIndex(pid);
+	await crawlPosts();
+}
+
+const crawlIndex = async (pid:number):Promise<Array<SchemaPost>|false>=>{
+	
+	try {
+		const rows = await DTmpCrawl.find({updated: 0}).toArray();
+		if (rows.length) {
+			sendAll("开始数据索引...");
+			for (let row of rows) {
+				const i = row._id
+				//ea.php?ea=10009&pagea=45#pagea
+				let url = `http://${host}/ea.php?ea=${pid}${i==1 ? '' : '&pagea=' + i + '#pagea'}`
+				for (let k = 1; k < 10; k++) {
+					if (!state.started) {
+						sendAll("用户停止抓取.");
+						sendAll(``);
+						state.started = false;
+						return false;
+					}
+					let time = +new Date();
+					let res=await fetchPost(url);
+					if (res) {
+						const $ = cheerio.load(res);
+						// let lastId = 0
+						
+						const result = [] as Array<SchemaPost>;
+						$('div.length_500').each((i:any, v:any)=>{
+							for(let m of v.children) {
+								if(m.tagName=='a') {
+									let url=m.attribs.href;
+									if (url && url.indexOf('viewtopic.php?tid=')===0) {
+										let _id = Number(url.slice(18));
+										let title=m.firstChild.data.trim();
+										result.push({
+											_id,
+											pid,
+											uid: 0,
+											username: '',
+											title,
+											contents: 	'',
+											result: 	'',
+											price:		0,
+											sales:		0,
+											status:		false,
+											updated:	0,
+											created:	0,
+										});
+									}
+									break;
+								}
+							}
+						});
+						if (result.length===0) {
+							sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);
+							sendAll(``);
+							return false;
+						}
+						await DTmpPosts.bulkWrite(result.map(i=>({
+							updateOne: {
+								filter: {_id: i._id},
+								update: {$set: i},
+								upsert: true
+							}
+						})));
+						sendAll(`Page ${i} record count ${result.length} spent ${+new Date() - time}ms`);
+						
+						
+						state.start = k;
+						break;
+					} else {
+						sendAll(`在 ${i} 页爬网失败 - 重试 ${k}次`);
+						await new Promise(resolve=>setTimeout(resolve,100));
+					}
+				}
+			}
+			sendAll("完成数据索引.");
+		} else {
+			sendAll("数据索引已经完成.");
+		}
+		
 	} catch (error) {
 		sendAll(`数据索引中未知错误 ${error.message}`);
 	}
 	return false
 }
 
-const crawlPosts = async (items:Array<SchemaPost>) => {
+const crawlPosts = async () => {
 	try {
+		const rows = await DTmpPosts.find({status: false}).toArray();
 		sendAll("开始获取数据详情...");
-		for (let i of items) {
+		for (let i of rows) {
 			let time=+new Date();
 			let res: any;
 			for (let k = 1; k <= 10; k++) {
@@ -226,11 +255,11 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 			let vtr=$('table.v_table_1 tr');
 			let tr=vtr[2];
 			if(tr) {
-				i.price = Number(tr.childNodes[3].childNodes[0].firstChild.data);
-				i.created = Math.round(new Date(tr.childNodes[5].firstChild.data+':00').getTime() / 1000);
+				const price = Number(tr.childNodes[3].childNodes[0].firstChild.data);
+				const created = Math.round(new Date(tr.childNodes[5].firstChild.data+':00').getTime() / 1000);
 				tr = vtr[4];
-				i.username = tr.childNodes[1].firstChild.data;
-				i.uid = Number(i.username);
+				const username = tr.childNodes[1].firstChild.data;
+				const uid = Number(username);
 				
 				let lastonline = tr.childNodes[5].firstChild.data;
 				if (lastonline=='1970-01-01 08:00') {
@@ -239,10 +268,10 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 					lastonline += ':00';
 				}
 				tr=vtr[6];
-				i.sales = Number(tr.childNodes[3].firstChild.data);
+				const sales = Number(tr.childNodes[3].firstChild.data);
 				let t = $('t').text();
 				let r = $('r').text();
-				i.contents = (t || r).trim();
+				const contents = (t || r).trim();
 				/* let imgs = 0; */
 				// let is = $('img.attach_image');
 				// let c = is.length>2?2:is.length;
@@ -290,30 +319,55 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 				// 		}
 				// 	}
 				// }
-				// await Posts.updateOne({
-				// 	id:i._id
-				// }, {
-				// 	$set: {
-				// 		contents,
-				// 		price,
-				// 		username,
-				// 		sales,
-				// 		status:100,
-				// 		updated: now(),
-				// 		created
-				// 	},
-				// 	$addToSet: {
-
+				// await DPosts.bulkWrite(items.map(i=>({
+				// 	updateOne: {
+				// 		filter: {_id: i._id},
+				// 		update: {
+				// 			$set: {
+				// 				pid:		i.pid,
+				// 				uid: 		i.uid,
+				// 				username: 	i.username,
+				// 				title:		i.title,
+				// 				contents: 	i.contents,
+				// 				result: 	i.result,
+				// 				price:		i.price,
+				// 				status:		true,
+				// 				updated,
+				// 			},
+				// 			$setOnInsert: {
+				// 				sales:		i.sales,
+				// 				created:	i.created,
+				// 			}
+				// 		},
+				// 		upsert: true
 				// 	}
-				// }, {upsert: true})
-				sendAll(`数据 #${i._id}号 获取成功 ${+new Date() - time}ms`);
+				// })));
+				if (!!contents && !!price && !!uid && !!created) {
+					await DTmpPosts.updateOne({
+						id:i._id
+					}, {
+						$set: {
+							contents,
+							price,
+							uid,
+							username,
+							sales,
+							status: true,
+							updated: created,
+							created
+						}
+					});
+					sendAll(`数据 #${i._id}号 获取成功 ${+new Date() - time}ms`);
+				} else {
+					sendAll(`数据 #${i._id}号 是空的 ${+new Date() - time}ms`);
+				}
 			}else{
 				sendAll(`数据 #${i._id}号 是空的 ${+new Date() - time}ms`);
 			}
 		}
 		
 		let time=+new Date();
-
+		const items = await DTmpPosts.find({status: true}).toArray();
 		const data = items.filter(i=>!!i.contents && !!i.price && i.created > 86400);
 		if (data.length!==0) {
 			const updated = now();
@@ -337,7 +391,7 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 					upsert: true
 				}
 			})));
-			await DPosts.bulkWrite(items.map(i=>({
+			await DPosts.bulkWrite(rows.map(i=>({
 				updateOne: {
 					filter: {_id: i._id},
 					update: {
@@ -347,7 +401,6 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 							username: 	i.username,
 							title:		i.title,
 							contents: 	i.contents,
-							result: 	i.result,
 							price:		i.price,
 							status:		true,
 							updated,

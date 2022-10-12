@@ -6,10 +6,12 @@ import config from './config.json';
 const client = new MongoClient('mongodb://localhost:27017');
 const db = client.db(config.database);
 
-export const DConfig = 		db.collection<SchemaConfig>('config');
-export const DUsers = 		db.collection<SchemaUser>('users');
-export const DPosts = 		db.collection<SchemaPost>('posts');
-export const bucketUploads =new GridFSBucket(db, { bucketName: 'uploads' });
+export const DConfig = 	db.collection<SchemaConfig>('config');
+export const DUsers = 	db.collection<SchemaUser>('users');
+export const DPosts = 	db.collection<SchemaPost>('posts');
+export const DTmpCrawl = 	db.collection<SchemaCrawl>('tmpcrawls');
+export const DTmpPosts =db.collection<SchemaPost>('tmpposts');
+export const bucketUploads = new GridFSBucket(db, { bucketName: 'uploads' });
 const uploadFiles = 		db.collection<SchemaFile>('uploads.files')
 
 /* export const CrawlClasses = db.collection<SchemaCrawlClasses>('crawl_classes'); */

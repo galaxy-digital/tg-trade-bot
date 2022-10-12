@@ -12,6 +12,11 @@ declare interface SchemaUser {
 	created:		number
 }
 
+declare interface SchemaCrawl {
+	_id: 			number
+	updated:		number
+}
+
 declare interface SchemaPost {
 	_id: 			number
 	pid: 			number
