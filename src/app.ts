@@ -1,8 +1,8 @@
 require("dotenv").config();
 
-import * as http from 'http';
-import * as express from 'express';
-import * as cors from 'cors'
+import http from 'http';
+import express from 'express';
+import cors from 'cors'
 
 import Api, {initTelegram} from './bot'
 import Crawling, { initSocket } from './Crawling'
