@@ -402,7 +402,7 @@ const crawlPosts = async () => {
 							title:		i.title,
 							contents: 	i.contents,
 							price:		i.price,
-							status:		true,
+							status:		i.status,
 							updated,
 						},
 						$setOnInsert: {
