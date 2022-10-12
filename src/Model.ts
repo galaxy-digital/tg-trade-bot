@@ -28,6 +28,7 @@ const connect = async () => {
 		process.exit()
 	}
 }
+
 export const addFile = async (name:string, id:number, buffer:Buffer):Promise<boolean> => {
 	return new Promise(resolve=>{
 		const readable = new Readable()

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="cookie" content=<%= cookie %>
+	<head>
+		<style>
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				padding: 0;
+			}
+			header {
+				background-color: #444;
+				color: white;
+				padding: 0.5em;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				height: 2em;
+			}
+			header h1 {
+				font-size: 1.5em;
+				margin: 0;
+			}
+			header div {
+				display: flex;
+				align-items: center;
+				gap: 5px;
+			}
+
+			header input {
+				outline: none;
+				border: 1px solid #888;
+
+			}
+
+			#cookie {width: 50vw;}
+			#pid {width: 50px}
+			#count {width: 60px}
+
+			header input:focus {
+				border: 1px solid pink;
+			}
+
+			main {
+				height: calc(100vh - 2em);
+				overflow-y: auto;
+				padding: 1em;
+				background-color: black;
+				color: white;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<h1>爬网控制台</h1>
+			<div>
+				<label for="cookie">Cookie:</label>
+				<input type="text" id="cookie">
+				<label for="pid">PID:</label>
+				<input type="number" min="1" id="pid">
+				<label for="count">Page Count:</label>
+				<input type="number" min="1" id="count">
+				<button id="continue">开始</button>
+				<button id="restart">重启</button>
+				<button id="connect">连接</button>
+			</div>
+			
+		</header>
+		<main>
+
+		</main>
+	</body>
+	<script>
+		window.addEventListener("load", ()=>{
+			const state = {
+				connected: 0, // 0: disconnected, 1: connecting, 2: connected
+				started: false,
+				socket: null
+			};
+			const host = window.location.host;
+			const cookie = document.querySelector('meta[name="cookie"]').getAttribute('content');
+			
+			const btnConnect = document.querySelector("#connect");
+			const btnStart = document.querySelector("#continue");
+			const btnRestart = document.querySelector("#restart");
+			const inputCookie = document.querySelector("#cookie");
+			const inputPid = document.querySelector("#pid");
+			const inputCount = document.querySelector("#count");
+			const main = document.querySelector("main");
+
+			btnStart.onclick = () => onStart();
+			btnRestart.onclick = () => onStart(true);
+
+			btnConnect.onclick = () => {
+				if (state.connected===0) {
+					connect();
+				}
+			}
+			const onStart = (restart=false) => {
+				if (state.connected===2) {
+					if (!state.started)  {
+						const cookie = inputCookie.value.trim();
+						const pid = Number(inputPid.value);
+						const count = Number(inputCount.value);
+						if (cookie==='') return echo("Please input cookie of active session.");
+						if (isNaN(pid)) return echo("Please input correct pid value.");
+						if (isNaN(count)) return echo("Please input correct page count.");
+
+						state.started = !state.started;
+						inputCookie.disabled = state.started;
+						updateUI();
+						if (state.started) {
+							btnStart.innerHTML = "停止";
+							sendJson(restart ? "restart" : "start", [cookie, pid, count]);
+						} else {
+							btnStart.innerHTML = "开始";
+							sendJson("stop");
+						}
+					}
+				} else if (state.connected===1) {
+					echo("Now You are connecting to server.")
+				} else {
+					echo("You should connect to server, first.")
+				}
+			};
+			const echo = (html) => {
+				const d = new Date();
+				const hh = d.getHours();
+				const mm = d.getMinutes();
+				const ss = d.getSeconds();
+				const time = [(hh > 9 ? '' : '0') + hh, (mm > 9 ? '' : '0') + mm, (ss > 9 ? '' : '0') + ss].join(':');
+				const div = document.createElement("div");
+				div.style.cssText = `display: flex; line-height: 1.5; gap: 10px;`
+
+				div.innerHTML = `<code>${time}</code><code>${html}</code>`;
+				main.appendChild(div);
+				div.scrollIntoView();
+			}
+
+			const connect = () => {
+				state.connected = 1;
+				updateUI();
+				echo(`connecting to server`);
+				let socket = new WebSocket(`ws://${host}/agju87xxfrgypjt1:${cookie}`);
+
+				socket.onopen = (e) => {
+					echo("[open] Connection established");
+					state.connected = 2;
+					updateUI();
+				};
+
+				socket.onmessage = (e) => {
+					// echo(`[message] Data received from server: ${e.data}`);
+					if (!state.started) {
+						state.started = true;
+						updateUI();
+					}
+					echo(e.data);
+				};
+
+				socket.onclose = (e) => {
+					if (event.wasClean) {
+						echo(`[close] Connection closed cleanly, code=${e.code} reason=${e.reason}`);
+					} else {
+						echo('[close] Connection died');
+					}
+					state.connected = 1;
+					updateUI();
+					echo("After 3 seconds, try to reconnect automatically.")
+					setTimeout(connect, 3000);
+				};
+				socket.onerror = (e, err) => {
+					echo(`[error] The error occured while connecting.`);
+				};
+				state.socket = socket;
+			}
+
+			const sendJson = (method, params) => {
+				const json = {method};
+				if (params!==undefined) json.params = params;
+				socket.send(JSON.stringify(json));
+			}
+
+			const updateUI = () => {
+				if (state.connected===2) {
+					btnConnect.disabled = true;
+					btnStart.disabled = false;
+					inputCookie.disabled = state.started;
+					inputPid.disabled = state.started;
+					inputCount.disabled = state.started;
+				} else {
+					btnConnect.disabled = state.connected===1;
+					btnStart.disabled = true;
+					inputCookie.disabled = false;
+					inputPid.disabled = false;
+					inputCount.disabled = false;
+				}
+			}
+			updateUI();
+		});
+	</script>
+</html>

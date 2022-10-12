@@ -13,7 +13,7 @@ declare interface SchemaUsers {
 }
 
 declare interface SchemaPosts {
-	id: 			number
+	_id: 			number
 	pid: 			number
 	uid: 			number
 	username: 		string
