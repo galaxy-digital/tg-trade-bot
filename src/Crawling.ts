@@ -346,7 +346,7 @@ const crawlPosts = async () => {
 				// })));
 				if (!!contents && !!price && !!uid && !!created) {
 					await DTmpPosts.updateOne({
-						id:i._id
+						_id: i._id
 					}, {
 						$set: {
 							contents,
