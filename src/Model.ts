@@ -8,7 +8,7 @@ const db = client.db(dbname);
 
 export const DConfig = 		db.collection<SchemaConfig>('config');
 export const DUsers = 		db.collection<SchemaUser>('users');
-export const DPosts = 		db.collection<SchemaPosts>('posts');
+export const DPosts = 		db.collection<SchemaPost>('posts');
 export const bucketUploads =new GridFSBucket(db, { bucketName: 'uploads' });
 const uploadFiles = 		db.collection<SchemaFile>('uploads.files')
 

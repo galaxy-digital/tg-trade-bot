@@ -12,7 +12,7 @@ declare interface SchemaUser {
 	created:		number
 }
 
-declare interface SchemaPosts {
+declare interface SchemaPost {
 	_id: 			number
 	pid: 			number
 	uid: 			number
@@ -22,11 +22,23 @@ declare interface SchemaPosts {
 	result: 		string
 	price:			number
 	sales:			number
-	status:			number
+	status:			boolean
 	updated:		number
 	created:		number
 }
 
+// declare interface CrawlPost {
+// 	_id: 			number
+// 	pid: 			number
+// 	title: 			string
+// 	contents: 		string
+// 	result: 		string
+// 	price:			number
+// 	sales:			number
+// 	status:			number
+// 	updated:		number
+// 	created:		number
+// }
 
 declare interface SchemaFile {
 	length: 			number

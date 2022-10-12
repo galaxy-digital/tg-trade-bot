@@ -1,5 +1,5 @@
-require("dotenv").config()
-const isDev = process.env.NODE_ENV==="development";
+// require("dotenv").config()
+// const isDev = process.env.NODE_ENV==="development";
 import websocket from 'websocket';
 import {v4 as uuidv4} from 'uuid';
 
@@ -8,7 +8,7 @@ import * as express from 'express'
 import * as fs from 'fs'
 import * as path from 'path'
 import { setlog } from './helper'
-import { addFile, getConfig, Posts, setConfig } from './Model'
+import { addFile, getConfig, DPosts, setConfig, DUsers } from './Model'
 import Socket from './lib/Socket';
 const tor = require('tor-request');
 const cheerio = require('cheerio');
@@ -126,8 +126,8 @@ const crawl = (pid:number, count:number) => {
 	crawlIndex(pid, count).then(result=>result!==false && crawlPosts(result));
 }
 
-const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPosts>|false>=>{
-	const result = [] as Array<SchemaPosts>;
+const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|false>=>{
+	const result = [] as Array<SchemaPost>;
 	try {
 		sendAll("开始数据索引...");
 		for (let i = state.start + 1; i <= count; i++) {
@@ -151,18 +151,18 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPosts>|f
 								let url=m.attribs.href;
 								if (url && url.indexOf('viewtopic.php?tid=')===0) {
 									let _id = Number(url.slice(18));
-									let title=m.firstChild.data;
+									let title=m.firstChild.data.trim();
 									result.push({
 										_id,
 										pid,
-										uid: 		0,
-										username: 	'',
+										uid: 0,
+										username: '',
 										title,
 										contents: 	'',
 										result: 	'',
 										price:		0,
 										sales:		0,
-										status:		0,
+										status:		false,
 										updated:	0,
 										created:	0,
 									});
@@ -187,7 +187,7 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPosts>|f
 	return false
 }
 
-const crawlPosts = async (items:Array<SchemaPosts>) => {
+const crawlPosts = async (items:Array<SchemaPost>) => {
 	try {
 		sendAll("开始获取数据详情...");
 		for (let i of items) {
@@ -210,6 +210,8 @@ const crawlPosts = async (items:Array<SchemaPosts>) => {
 				i.created = Math.round(new Date(tr.childNodes[5].firstChild.data+':00').getTime() / 1000);
 				tr = vtr[4];
 				i.username = tr.childNodes[1].firstChild.data;
+				i.uid = Number(i.username);
+				
 				let lastonline = tr.childNodes[5].firstChild.data;
 				if (lastonline=='1970-01-01 08:00') {
 					lastonline = null;
@@ -217,10 +219,10 @@ const crawlPosts = async (items:Array<SchemaPosts>) => {
 					lastonline += ':00';
 				}
 				tr=vtr[6];
-				// let sales = Number(tr.childNodes[3].firstChild.data);
+				i.sales = Number(tr.childNodes[3].firstChild.data);
 				let t = $('t').text();
 				let r = $('r').text();
-				i.contents = (t || r);
+				i.contents = (t || r).trim();
 				/* let imgs = 0; */
 				// let is = $('img.attach_image');
 				// let c = is.length>2?2:is.length;
@@ -289,6 +291,57 @@ const crawlPosts = async (items:Array<SchemaPosts>) => {
 				sendAll(`数据号 #${i._id} 是空的 ${+new Date() - time}ms`);
 			}
 		}
+		
+		let time=+new Date();
+
+		const data = items.filter(i=>!!i.contents && !!i.price && i.created > 86400);
+		if (data.length!==0) {
+			const updated = now();
+			const users = {} as {[uid: number]: number};
+			for (let i of data) users[i.uid] = i.created - 86400;
+	
+			await DUsers.bulkWrite(Object.keys(users).map(id=>({
+				updateOne: {
+					filter: {_id: Number(id)},
+					update: {
+						$set: {
+							username: 		id,
+							fullname: 		'',
+							updated
+						},
+						$setOnInsert: {
+							balance:		0,
+							created:		users[id]
+						}
+					},
+					upsert: true
+				}
+			})));
+			await DPosts.bulkWrite(items.map(i=>({
+				updateOne: {
+					filter: {_id: i._id},
+					update: {
+						$set: {
+							pid:		i.pid,
+							uid: 		i.uid,
+							username: 	i.username,
+							title:		i.title,
+							contents: 	i.contents,
+							result: 	i.result,
+							price:		i.price,
+							status:		false,
+							updated,
+						},
+						$setOnInsert: {
+							sales:		i.sales,
+							created:	i.created,
+						}
+					},
+					upsert: true
+				}
+			})));
+		}
+		sendAll(`爬虫成功 - 写入数据 #${items.length} ${+new Date() - time}ms`);
 	} catch (error) {
 		sendAll(`获取数据中未知错误 ${error.message}`);
 	}
