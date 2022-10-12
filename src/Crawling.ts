@@ -334,7 +334,7 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 							contents: 	i.contents,
 							result: 	i.result,
 							price:		i.price,
-							status:		false,
+							status:		true,
 							updated,
 						},
 						$setOnInsert: {
