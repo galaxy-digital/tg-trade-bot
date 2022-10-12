@@ -156,6 +156,7 @@
 					if (e.data==='') {
 						state.started = false;
 						updateUI();
+						return;
 					} else if (e.data!=='用户停止抓取.') {
 						if (!state.started) {
 							state.started = true;
