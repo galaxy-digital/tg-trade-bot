@@ -137,7 +137,7 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 				if (!state.started) {
 					sendAll("用户停止抓取.");
 					state.started = false;
-					return;
+					return false;
 				}
 				let time = +new Date();
 				let res=await fetchPost(url);
@@ -194,6 +194,11 @@ const crawlPosts = async (items:Array<SchemaPost>) => {
 			let time=+new Date();
 			let res: any;
 			for (let k = 1; k <= 10; k++) {
+				if (!state.started) {
+					sendAll("用户停止抓取.");
+					state.started = false;
+					return false;
+				}
 				res=await fetchPost(`http://${host}/viewtopic.php?tid=${i._id}`);
 				if(res) break;
 				sendAll(`数据号 #${i._id}爬虫失败，重试 ${k+1}次`);

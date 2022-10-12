@@ -101,24 +101,23 @@
 			}
 			const onStart = (restart=false) => {
 				if (state.connected===2) {
-					const cookie = inputCookie.value.trim();
-					const pid = Number(inputPid.value);
-					const count = Number(inputCount.value);
-					if (cookie==='') return echo("Please input cookie of active session.");
-					if (isNaN(pid)) return echo("Please input correct pid value.");
-					if (isNaN(count)) return echo("Please input correct page count.");
-					saveParam();
-					
-					state.started = !state.started;
-					inputCookie.disabled = state.started;
-					updateUI();
-					if (state.started) {
+					if (!state.started) {
+						const cookie = inputCookie.value.trim();
+						const pid = Number(inputPid.value);
+						const count = Number(inputCount.value);
+						if (cookie==='') return echo("Please input cookie of active session.");
+						if (isNaN(pid)) return echo("Please input correct pid value.");
+						if (isNaN(count)) return echo("Please input correct page count.");
+						saveParam(cookie, pid, count);
 						btnStart.innerHTML = "停止";
 						sendJson(restart ? "restart" : "start", [cookie, pid, count]);
 					} else {
 						btnStart.innerHTML = "开始";
 						sendJson("stop");
 					}
+					state.started = !state.started;
+					inputCookie.disabled = state.started;
+					updateUI();
 				} else if (state.connected===1) {
 					echo("Now You are connecting to server.")
 				} else {
@@ -153,9 +152,11 @@
 
 				socket.onmessage = (e) => {
 					// echo(`[message] Data received from server: ${e.data}`);
-					if (!state.started) {
-						state.started = true;
-						updateUI();
+					if (e.data!=='用户停止抓取.') {
+						if (!state.started) {
+							state.started = true;
+							updateUI();
+						}
 					}
 					echo(e.data);
 				};
@@ -191,6 +192,7 @@
 					inputCookie.disabled = state.started;
 					inputPid.disabled = state.started;
 					inputCount.disabled = state.started;
+
 				} else {
 					btnConnect.disabled = state.connected===1;
 					btnStart.disabled = true;
@@ -198,6 +200,11 @@
 					inputCookie.disabled = true;
 					inputPid.disabled = true;
 					inputCount.disabled = true;
+				}
+				if (state.started) {
+					btnStart.innerHTML = "停止";
+				} else {
+					btnStart.innerHTML = "开始";
 				}
 			}
 
