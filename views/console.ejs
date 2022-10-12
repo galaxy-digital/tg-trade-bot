@@ -142,7 +142,8 @@
 				state.connected = 1;
 				updateUI();
 				echo(`connecting to server`);
-				let socket = new WebSocket(`ws://${host}/agju87xxfrgypjt1:${cookie}`);
+				const protocol = window.location.protocol==='https:' ? 'wss' : 'ws';
+				let socket = new WebSocket(`${protocol}://${host}/agju87xxfrgypjt1:${cookie}`);
 
 				socket.onopen = (e) => {
 					echo("[open] Connection established");
