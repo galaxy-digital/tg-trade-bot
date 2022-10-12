@@ -123,7 +123,11 @@ const fetchPost = (url:string) => {
 }
 
 const crawl = (pid:number, count:number) => {
-	crawlIndex(pid, count).then(result=>result!==false && crawlPosts(result));
+	crawlIndex(pid, count).then(result=>{
+		if (result!==false && result.length!==0) {
+			crawlPosts(result)
+		}
+	});
 }
 
 const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|false>=>{
@@ -172,10 +176,12 @@ const crawlIndex = async (pid:number, count:number):Promise<Array<SchemaPost>|fa
 							}
 						}
 					});
-					sendAll(`Page ${i} record count ${count} spent ${+new Date() - time}ms`);
-					if (count) {
-						
+					if (count ===0) {
+						sendAll(`Failed Page ${i}, seems the cookie expired. change cookie and try again.`);	
+						return false;
 					}
+					sendAll(`Page ${i} record count ${count} spent ${+new Date() - time}ms`);
+					
 					
 					state.start = k;
 					break;
