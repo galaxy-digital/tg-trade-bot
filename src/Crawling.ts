@@ -393,7 +393,7 @@ const crawlPosts = async () => {
 					upsert: true
 				}
 			})));
-			await DPosts.bulkWrite(rows.map(i=>({
+			await DPosts.bulkWrite(data.map(i=>({
 				updateOne: {
 					filter: {_id: i._id},
 					update: {
